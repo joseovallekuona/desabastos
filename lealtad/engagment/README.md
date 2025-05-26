@@ -1,5 +1,5 @@
 
-Las visualizaciones del módulo de engagement utilizan 4 datasets:
+Las visualizaciones del módulo de engagement utilizan 5 datasets:
 
     * Loyalty_accounts_main - ejecuta desde un query - almacena indicadores generales: usuarios activos, usuarios perdidos, usuarios_nuevo y usuarios digitales
     * Lealtad_engagement_sales - ejecuta desde un query - obtiene el ticket promedio en promociones
