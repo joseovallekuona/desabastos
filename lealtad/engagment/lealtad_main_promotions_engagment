@@ -1,0 +1,37 @@
+select  
+             accounts.perfil_premia
+            ,accounts.etiquetas_necesidad
+            ,accounts.etiqueta_redencion
+            ,accounts.rango_frecuencia
+            ,accounts.rango_ticket
+            ,promotions.promotionid
+            ,promotions.promotionname
+            ,count(distinct promotions.accountid) accounts
+            ,sum(transactions) transactions
+        from
+            (
+            select
+                accountid,
+                promotionid,
+                promotionname,
+                count(distinct transactionid) transactions
+            from
+                awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz sellos
+            group by 
+                accountid,
+                promotionid,
+                promotionname
+            ) promotions
+            left join
+                awsdatacatalog.oxxo_loyalty_raw_database.mc_actual_csv accounts
+                on promotions.accountid = accounts.accountid
+        group by
+             accounts.perfil_premia
+            ,accounts.etiquetas_necesidad
+            ,accounts.etiqueta_redencion
+            ,accounts.rango_frecuencia
+            ,accounts.rango_ticket
+            ,promotions.promotionid
+            ,promotions.promotionname
+        order by
+            9 desc
