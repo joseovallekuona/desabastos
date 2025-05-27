@@ -1,0 +1,45 @@
+select
+                 promotionid
+                ,case when all_punchcards_same_ticket = 1 then 'Acumula sellos necesarios'
+                 else 'No acumula sellos necesarios' end completa_planilla_tipo
+                ,case when redeems_ticket = 1 then 'Efectúa redención' else 'No efectúa redención' end redime
+                ,count(transactionid) transacciones
+            from
+            (
+            select
+                 promotionid
+                ,transactionid 
+                ,collect
+                ,regla_sello
+                ,case 
+                    when redeems > 0 then 1
+                    when redeems is null then 0
+                    else 0 
+                end redeems_ticket
+                ,case when collect = regla_sello then 1 else 0 end all_punchcards_same_ticket
+            from
+            (
+                select
+                     promotionid
+                    ,transactionid
+                    ,sum(case when transactiontype = 'COLLECT' then mutation else 0 end)  collect
+                    ,sum(case when transactiontype = 'REDEEM' then mutation else 0 end)  redeems
+                    ,avg(requiredbalanceforreward) regla_sello
+                from 
+                    awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz
+                where
+                    try_cast(promotionid AS integer) IS NOT NULL
+                group by
+                    promotionid
+                    ,transactionid
+            )
+             ticket_analysis
+            )
+             ticket_analysis
+            --where
+                --all_punchcards_same_ticket = 1
+            group by
+                 promotionid
+                ,case when all_punchcards_same_ticket = 1 then 'Acumula sellos necesarios'
+                 else 'No acumula sellos necesarios' end
+                ,case when redeems_ticket = 1 then 'Efectúa redención' else 'No efectúa redención' end
