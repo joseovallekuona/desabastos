@@ -7,7 +7,7 @@
 
 
 * Notas
-  - La información de oxxo no se ha actualizado porque lo no se ctualizaría hasta que sellout_promotions se actualice
+  - La información de oxxo no se ha actualizado por lo que no se ctualizaría hasta que sellout_promotions se actualice
   - El proceso se ejecutó inicialmente de esta forma por el constraint para generar los cubos directamente desde athena
   - Se pueden fitlrar combinaciones de filtros: categoría, supercategoría, marca
   - La desventaja principal de este proceso es el impacto en el filtrado de las columnas ya que no se pueden seleccionar "multiples valores" en el filtro, sólo 1 valor por filtro
