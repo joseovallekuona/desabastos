@@ -1,0 +1,161 @@
+SELECT
+    *
+    ,avg(dias_sin_transaccion) over(partition by recency_percentile) recency
+    ,avg(visitas_prom_mes) over(partition by frecuency_percentile) frequency
+FROM
+(
+SELECT
+         analysis.*
+        ,NTILE(10) OVER (ORDER BY analysis.dias_sin_transaccion asc) AS recency_percentile
+        ,NTILE(10) OVER (ORDER BY analysis.visitas_prom_mes ASC) AS frecuency_percentile
+        ,accounts.perfil_premia
+        ,accounts.etiqueta_segmento
+    FROM
+    (
+    SELECT
+         accountid
+        ,dias_sin_transaccion
+        ,avg(dias_con_visita) visitas_prom_mes
+    FROM
+        (
+            SELECT
+                accounts.accountid
+                ,accounts.dias_sin_transaccion
+                ,date_trunc('month',date_parse(cast(sellout.id_fecha_adm as varchar), '%Y%m%d')) month_
+                ,COUNT(DISTINCT sellout.id_fecha_adm) dias_con_visita
+        FROM
+            (
+            SELECT
+                distinct 
+                     transactionid
+                    ,tienda_key id_tienda
+                    ,dia_id id_fecha_adm
+                    ,CAST(SUBSTRING(transactionid, 11, 2) AS INT) id_caja
+                    ,CAST(SUBSTRING(transactionid, LENGTH(transactionid) - 5, 2) AS INT) * 60 + 
+                     CAST(SUBSTRING(transactionid, LENGTH(transactionid) - 3, 2) AS INT) id_hora
+                    ,accountid
+            FROM
+            (
+                SELECT
+                    *
+                FROM
+                (
+                    SELECT
+                        distinct estrellas.transactionid, estrellas.tienda_key, estrellas.dia_id, estrellas.accountid
+                    FROM
+                        awsdatacatalog.oxxo_loyalty_raw_database.estrellas_csv_gz estrellas
+                    LEFT JOIN
+                        (
+                        SELECT
+                            distinct transactionid
+                        FROM 
+                            awsdatacatalog.oxxo_loyalty_raw_database.estrellas_csv_gz estrellas
+                        where
+                            (NOT regexp_like(SUBSTRING(estrellas.transactionid, LENGTH(estrellas.transactionid) - 5, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(estrellas.transactionid, LENGTH(estrellas.transactionid) - 3, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(estrellas.transactionid, 11, 2),'^[0-9]+$')
+                            )
+                        ) exclude_estrellas
+                    on
+                        estrellas.transactionid = exclude_estrellas.transactionid
+                    where
+                        exclude_estrellas.transactionid is null
+                        and estrellas.dia_id between 20241201 and 20241231
+                        
+                ) 
+                estrellas_transactionids
+                UNION
+                SELECT
+                    *
+                FROM
+                (
+                    SELECT
+                        distinct sellos.transactionid, sellos.tienda_key, sellos.dia_id,  sellos.accountid
+                    FROM
+                        awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz sellos
+                    LEFT JOIN
+                        (
+                        SELECT
+                            distinct transactionid
+                        FROM 
+                            awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz sellos
+                        where
+                            (NOT regexp_like(SUBSTRING(sellos.transactionid, LENGTH(sellos.transactionid) - 5, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(sellos.transactionid, LENGTH(sellos.transactionid) - 3, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(sellos.transactionid, 11, 2),'^[0-9]+$')
+                            )
+                        ) exclude_sellos
+                    on
+                        sellos.transactionid = exclude_sellos.transactionid
+                    where
+                        exclude_sellos.transactionid is null
+                        and sellos.dia_id between 20241201 and 20241231
+                ) 
+                sellos_transactionids
+                UNION
+                SELECT
+                    *
+                FROM
+                (
+                    SELECT
+                        distinct bpos.transactionid, bpos.tienda_key, bpos.dia_id, bpos.accountid
+                    FROM
+                        awsdatacatalog.oxxo_loyalty_raw_database.bpos_csv_gz bpos
+                    LEFT JOIN
+                        (
+                        SELECT
+                            distinct transactionid
+                        FROM 
+                            awsdatacatalog.oxxo_loyalty_raw_database.bpos_csv_gz bpos
+                        where
+                            (NOT regexp_like(SUBSTRING(bpos.transactionid, LENGTH(bpos.transactionid) - 5, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(bpos.transactionid, LENGTH(bpos.transactionid) - 3, 2),'^[0-9]+$')
+                            OR NOT regexp_like(SUBSTRING(bpos.transactionid, 11, 2),'^[0-9]+$')
+                            )
+                        ) exclude_bpos
+                    on
+                        bpos.transactionid = exclude_bpos.transactionid
+                    where
+                        exclude_bpos.transactionid is null
+                        and bpos.dia_id between 20241201 and 20241231
+                ) 
+                bpos_transactionids
+            ) promos
+            ) lealtad_key
+            inner join
+                awsdatacatalog.oxxo_silver_database.sellout_promotions sellout
+                on sellout.id_tienda = lealtad_key.id_tienda
+                and sellout.id_fecha_adm = lealtad_key.id_fecha_adm
+                and sellout.id_caja = lealtad_key.id_caja
+                and sellout.id_hora = lealtad_key.id_hora
+            right join
+                awsdatacatalog.oxxo_loyalty_raw_database.mc_actual_csv accounts
+                on accounts.accountid = lealtad_key.accountid
+            inner join
+                (
+                select 
+                    *
+                from
+                    awsdatacatalog.oxxo_silver_database.products products
+                where
+                    origin_file = (select max(origin_file) from awsdatacatalog.oxxo_silver_database.products)
+                )
+                products
+                on sellout.id_producto = CAST(products.id_producto AS INT)
+            where
+                sellout.id_fecha_adm between 20240101 and 20241231
+            group by
+             accounts.accountid
+            ,accounts.dias_sin_transaccion
+            ,date_trunc('month',date_parse(cast(sellout.id_fecha_adm as varchar), '%Y%m%d'))
+        )
+        group by
+         accountid
+        ,dias_sin_transaccion
+    )
+    analysis
+    inner join
+        awsdatacatalog.oxxo_loyalty_raw_database.mc_actual_csv accounts
+        on analysis.accountid = accounts.accountid
+)
+    analysis

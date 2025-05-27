@@ -1,0 +1,55 @@
+/*get transactions per account promotion*/
+
+    SELECT
+         accounts.accountid
+        ,lealtad_key.promotionid
+        ,COUNT(DISTINCT transactionid) transactions_
+    FROM
+        (
+        SELECT
+            distinct 
+                 transactionid
+                ,tienda_key id_tienda
+                ,dia_id id_fecha_adm
+                ,CAST(SUBSTRING(transactionid, 11, 2) AS INT) id_caja
+                ,CAST(SUBSTRING(transactionid, LENGTH(transactionid) - 5, 2) AS INT) * 60 + 
+                 CAST(SUBSTRING(transactionid, LENGTH(transactionid) - 3, 2) AS INT) id_hora
+                ,accountid
+                ,promotionid
+        FROM
+        (
+            SELECT
+                *
+            FROM
+            (
+                SELECT
+                    distinct sellos.transactionid, sellos.tienda_key, sellos.dia_id,  sellos.accountid, sellos.promotionid
+                FROM
+                    awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz sellos
+                LEFT JOIN
+                    (
+                    SELECT
+                        distinct transactionid
+                    FROM 
+                        awsdatacatalog.oxxo_loyalty_raw_database.sellos_csv_gz sellos
+                    where
+                        (NOT regexp_like(SUBSTRING(sellos.transactionid, LENGTH(sellos.transactionid) - 5, 2),'^[0-9]+$')
+                        OR NOT regexp_like(SUBSTRING(sellos.transactionid, LENGTH(sellos.transactionid) - 3, 2),'^[0-9]+$')
+                        OR NOT regexp_like(SUBSTRING(sellos.transactionid, 11, 2),'^[0-9]+$')
+                        )
+                    ) exclude_sellos
+                on
+                    sellos.transactionid = exclude_sellos.transactionid
+                where
+                    exclude_sellos.transactionid is null
+                    and sellos.dia_id between 20240101 and 20241231
+            ) 
+            sellos_transactionids
+        ) promos
+        ) lealtad_key
+        inner join
+            awsdatacatalog.oxxo_loyalty_raw_database.mc_actual_csv accounts
+            on accounts.accountid = lealtad_key.accountid
+        group by
+         accounts.accountid
+        ,lealtad_key.promotionid
